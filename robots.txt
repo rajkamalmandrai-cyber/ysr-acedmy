@@ -1,0 +1,15 @@
+# Robots.txt for YSR Academy (https://www.ysracademy.com)
+# Allow all major search engines to crawl public content
+
+User-agent: *
+Allow: /
+Allow: /style.css
+Allow: /scripts.js
+Allow: /assets/
+Allow: /ysr-logo.png
+
+# Disallow private admin panel
+Disallow: /admin.html
+
+# XML Sitemap
+Sitemap: https://www.ysracademy.com/sitemap.xml

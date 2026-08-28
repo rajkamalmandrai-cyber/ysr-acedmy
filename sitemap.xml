@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+                            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd
+                            http://www.google.com/schemas/sitemap-image/1.1
+                            http://www.google.com/schemas/sitemap-image/1.1/sitemap-image.xsd">
+
+  <url>
+    <loc>https://www.ysracademy.com/</loc>
+    <lastmod>2026-08-28T00:00:00+05:30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.00</priority>
+    <image:image>
+      <image:loc>https://www.ysracademy.com/assets/ysr-logo.png</image:loc>
+      <image:title>YSR Academy Thane - Best JEE, NEET &amp; Board Coaching Classes</image:title>
+      <image:caption>YSR Academy Coaching Institute logo in Manpada, Thane West</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.ysracademy.com/assets/ysr-academy-og-image.webp</image:loc>
+      <image:title>YSR Academy Thane Coaching Institute</image:title>
+      <image:caption>Top-rated coaching classes in Thane for JEE, NEET, MHT-CET, CBSE and SSC</image:caption>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://www.ysracademy.com/gallery.html</loc>
+    <lastmod>2026-08-28T00:00:00+05:30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+    <image:image>
+      <image:loc>https://www.ysracademy.com/assets/ysr-academy-og-image.webp</image:loc>
+      <image:title>YSR Academy Thane Campus and Student Gallery</image:title>
+      <image:caption>Campus facilities and student celebrations at YSR Academy Thane</image:caption>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://www.ysracademy.com/privacy-policy.html</loc>
+    <lastmod>2026-08-28T00:00:00+05:30</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.50</priority>
+  </url>
+
+  <url>
+    <loc>https://www.ysracademy.com/terms-conditions.html</loc>
+    <lastmod>2026-08-28T00:00:00+05:30</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.50</priority>
+  </url>
+
+</urlset>
