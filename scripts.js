@@ -16,9 +16,13 @@ console.log("✅ Supabase Connected Successfully");
 async function loginWithGoogle() {
     console.log('login button clicked');
     console.log('auth started');
+    console.log('Redirecting to origin:', window.location.origin);
     try {
         const { data, error } = await supabaseClient.auth.signInWithOAuth({
-            provider: 'google'
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin
+            }
         });
 
         if (error) {
