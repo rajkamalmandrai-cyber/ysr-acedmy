@@ -3,10 +3,6 @@
 
 User-agent: *
 Allow: /
-Allow: /style.css
-Allow: /scripts.js
-Allow: /assets/
-Allow: /ysr-logo.png
 
 # Disallow private admin panel
 Disallow: /admin.html
