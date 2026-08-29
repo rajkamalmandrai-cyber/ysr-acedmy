@@ -43,9 +43,9 @@ if (themeToggleBtn) {
     });
 }
 
- // --- 0. ADMIN SETUP ---
  const ADMIN_EMAILS = [
- "rajkamalmandrai@gmail.com"
+ "rajkamalmandrai@gmail.com",
+ "ysracademy@gmail.com"
  ];
 
  // Helper to check admin status by looking for a class on the body.
