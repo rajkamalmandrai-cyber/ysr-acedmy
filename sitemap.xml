@@ -79,18 +79,4 @@
     </image:image>
   </url>
 
-  <url>
-    <loc>https://www.ysracademy.com/privacy-policy.html</loc>
-    <lastmod>2026-08-28T00:00:00+05:30</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.50</priority>
-  </url>
-
-  <url>
-    <loc>https://www.ysracademy.com/terms-conditions.html</loc>
-    <lastmod>2026-08-28T00:00:00+05:30</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.50</priority>
-  </url>
-
 </urlset>

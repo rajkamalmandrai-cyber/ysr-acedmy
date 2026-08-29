@@ -475,9 +475,10 @@ if (themeToggleBtn) {
                     // Create Slide
                     const slide = document.createElement('div');
                     slide.className = 'champion-slide';
+                    const isFirst = index === 0;
                     slide.innerHTML = `
                         ${adminControls}
-                        <img src="${banner.image_url}" alt="${banner.title ? banner.title + ' - YSR Academy Thane Achievement' : 'YSR Academy Thane Champion Student Achievement'}" loading="lazy" decoding="async">
+                        <img src="${banner.image_url}" alt="${banner.title ? banner.title + ' - YSR Academy Thane Achievement' : 'YSR Academy Thane Champion Student Achievement'}" ${isFirst ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">
                         <h3 class="champion-title">${banner.title}</h3>
                     `;
                     track.appendChild(slide);
@@ -737,11 +738,25 @@ if (themeToggleBtn) {
 
             const fragment = document.createDocumentFragment();
             images.forEach((image, index) => {
+                let altText = "YSR Academy Campus Gallery Image - Thane Coaching Institute";
+                const path = image.image_path || image.image_url;
+                if (path) {
+                    const parts = path.split('/');
+                    const filename = parts[parts.length - 1];
+                    const cleanFilename = filename.replace(/^\d+_/, '');
+                    const nameWithoutExt = cleanFilename.substring(0, cleanFilename.lastIndexOf('.')) || cleanFilename;
+                    const readableName = nameWithoutExt.replace(/[-_]/g, ' ').trim();
+                    if (readableName && !readableName.match(/^\d+$/)) {
+                        const capitalized = readableName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        altText = `${capitalized} - YSR Academy Thane`;
+                    }
+                }
+
                 const item = document.createElement('div');
                 item.className = 'gallery-item smooth-render';
                 item.style.transitionDelay = `${index * 50}ms`;
                 item.innerHTML = ` 
-                    <img src="${image.image_url}" alt="YSR Academy Campus Gallery Image - Thane Coaching Institute" loading="lazy" decoding="async">
+                    <img src="${image.image_url}" alt="${altText}" loading="lazy" decoding="async">
                     ${loggedIn ? `
                     <div class="item-overlay">
                         <button class="btn-delete" data-id="${image.id}" aria-label="Delete Image">
@@ -1042,7 +1057,7 @@ if (themeToggleBtn) {
                         const item = document.createElement('div');
                         item.className = 'student-achievement';
                         item.innerHTML = `
-                            <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300D9FF'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>" alt="${topper.student_name} - Successful Student at YSR Academy Thane" class="student-photo" loading="lazy" decoding="async">
+                            <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300D9FF'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>" alt="${topper.student_name} - Successful Student at YSR Academy Thane" class="student-photo" loading="lazy" decoding="async" width="40" height="40">
                             <div class="student-info">
                                 <h4>${topper.student_name}</h4>
                                 <p>${topper.description || 'Top Achiever'}</p>
