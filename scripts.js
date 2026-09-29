@@ -56,6 +56,8 @@ if (themeToggleBtn) {
  supabaseClient.auth.onAuthStateChange(async (event, session) => {
  const portalBtn = document.getElementById('portal-btn');
  const logoutBtn = document.getElementById('logout-btn');
+ const studentHubNavItem = document.getElementById('student-hub-nav-item');
+ const adminContribNavItem = document.getElementById('admin-contrib-nav-item');
 
  if (event === 'INITIAL_SESSION') {
         console.log('✅ Auth session restored');
@@ -74,21 +76,31 @@ if (themeToggleBtn) {
  // Check if the logged-in user is an admin
  if (session.user && ADMIN_EMAILS.includes(session.user.email)) {
             console.log('✅ Admin restored');
- enableAdminMode();
+            if (studentHubNavItem) studentHubNavItem.style.display = 'none';
+            if (adminContribNavItem) adminContribNavItem.style.display = 'list-item';
+            enableAdminMode();
             initChampionAdminSystem(); // Ensure admin system is initialized for champions
+            if (typeof updateAdminPendingContributionsBadge === 'function') {
+                updateAdminPendingContributionsBadge();
+            }
         } else {
             console.log('✅ Normal user restored');
- disableAdminMode();
+            if (studentHubNavItem) studentHubNavItem.style.display = 'list-item';
+            if (adminContribNavItem) adminContribNavItem.style.display = 'none';
+            disableAdminMode();
  }
     } else {
  // User is signed out
  if (portalBtn) portalBtn.parentElement.style.display = 'list-item';
  if (logoutBtn) logoutBtn.parentElement.style.display = 'none';
+ if (studentHubNavItem) studentHubNavItem.style.display = 'none';
+ if (adminContribNavItem) adminContribNavItem.style.display = 'none';
  
  if (event === 'SIGNED_OUT') {
             console.log('✅ Logout success');
  }
  disableAdminMode();
+ closeHubModals();
     }
  });
 
@@ -522,7 +534,7 @@ if (themeToggleBtn) {
         loadChampions();
     };
 
-    const initChampionAdminSystem = () => {
+    function initChampionAdminSystem() {
         const addBtn = document.getElementById('btn-add-champion');
         if (!addBtn) return;
     
@@ -1243,10 +1255,12 @@ if (themeToggleBtn) {
     const closeModalBtn = document.getElementById('close-modal-btn');
     const loginError = document.getElementById('login-error');
 
-    const closeModal = () => {
-        if (modalOverlay) modalOverlay.classList.remove('visible');
-        if(loginError) loginError.textContent = '';
-    };
+    function closeModal() {
+        const modal = document.getElementById('login-modal-overlay');
+        const err = document.getElementById('login-error');
+        if (modal) modal.classList.remove('visible');
+        if (err) err.textContent = '';
+    }
 
     function enableAdminMode() {
         document.body.classList.add('is-admin');
@@ -1977,3 +1991,822 @@ if (themeToggleBtn) {
             }
         });
     }
+
+    // =========================================================================
+    // 14. STUDENT FEEDBACK & CONTRIBUTION HUB + ADMIN REVIEW SYSTEM
+    // =========================================================================
+
+    // Global Hub Modal Closer
+    window.closeHubModals = function() {
+        const studentModal = document.getElementById('student-hub-modal-overlay');
+        const adminModal = document.getElementById('admin-review-modal-overlay');
+        const lightbox = document.getElementById('hub-lightbox-overlay');
+        if (studentModal) studentModal.classList.remove('visible');
+        if (adminModal) adminModal.classList.remove('visible');
+        if (lightbox) lightbox.classList.remove('visible');
+    };
+
+    // --- Helper: Category Display Mapping ---
+    const CATEGORY_MAP = {
+        'feature_suggestion': { icon: '💡', label: 'Feature Suggestion' },
+        'photo_submission': { icon: '📸', label: 'Photo Submission' },
+        'announcement_request': { icon: '📢', label: 'Announcement Request' },
+        'bug_report': { icon: '🐞', label: 'Bug / Issue' },
+        'general_feedback': { icon: '💬', label: 'General Feedback' }
+    };
+
+    function getCategoryMeta(key) {
+        return CATEGORY_MAP[key] || { icon: '📌', label: key || 'Contribution' };
+    }
+
+    function getStatusBadgeHtml(status) {
+        const safeStatus = (status || 'pending').toLowerCase();
+        return `<span class="status-badge badge-${safeStatus}">${safeStatus}</span>`;
+    }
+
+    // --- Lightbox Viewer ---
+    function openAttachmentLightbox(imgSrc, captionText) {
+        const overlay = document.getElementById('hub-lightbox-overlay');
+        const img = document.getElementById('hub-lightbox-img');
+        const caption = document.getElementById('hub-lightbox-caption');
+        if (overlay && img) {
+            img.src = imgSrc;
+            if (caption) caption.textContent = captionText || '';
+            overlay.classList.add('visible');
+        }
+    }
+
+    const closeHubLightboxBtn = document.getElementById('close-hub-lightbox');
+    const hubLightboxOverlay = document.getElementById('hub-lightbox-overlay');
+    if (closeHubLightboxBtn && hubLightboxOverlay) {
+        closeHubLightboxBtn.addEventListener('click', () => hubLightboxOverlay.classList.remove('visible'));
+        hubLightboxOverlay.addEventListener('click', (e) => {
+            if (e.target === hubLightboxOverlay) hubLightboxOverlay.classList.remove('visible');
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // A. STUDENT HUB SYSTEM (STUDENT-FACING)
+    // -------------------------------------------------------------------------
+    const studentHubBtn = document.getElementById('student-hub-btn');
+    const studentHubOverlay = document.getElementById('student-hub-modal-overlay');
+    const closeStudentHubBtn = document.getElementById('close-student-hub-modal');
+    const tabBtnNew = document.getElementById('tab-btn-new-contribution');
+    const tabBtnMy = document.getElementById('tab-btn-my-submissions');
+    const tabPaneNew = document.getElementById('tab-pane-new-contribution');
+    const tabPaneMy = document.getElementById('tab-pane-my-submissions');
+    const contribForm = document.getElementById('student-contribution-form');
+    const categoryCards = document.querySelectorAll('.category-card');
+    const photoTargetGroup = document.getElementById('photo-target-group');
+    const fileDropZone = document.getElementById('file-drop-zone');
+    const contribFileInput = document.getElementById('contrib-file-input');
+    const fileDropPrompt = document.getElementById('file-drop-prompt');
+    const filePreviewWrap = document.getElementById('file-preview-wrap');
+    const filePreviewImg = document.getElementById('file-preview-img');
+    const filePreviewName = document.getElementById('file-preview-name');
+    const filePreviewSize = document.getElementById('file-preview-size');
+    const btnRemoveFile = document.getElementById('btn-remove-file');
+    const studentHubStatus = document.getElementById('student-hub-status');
+    const btnRefreshMySubmissions = document.getElementById('btn-refresh-my-submissions');
+    const mySubmissionsList = document.getElementById('my-submissions-list');
+    const mySubmissionsCount = document.getElementById('my-submissions-count');
+
+    let currentSelectedFile = null;
+
+    // Modal Open/Close
+    if (studentHubBtn && studentHubOverlay) {
+        studentHubBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            studentHubOverlay.classList.add('visible');
+            switchStudentTab('new');
+        });
+
+        if (closeStudentHubBtn) {
+            closeStudentHubBtn.addEventListener('click', () => studentHubOverlay.classList.remove('visible'));
+        }
+
+        studentHubOverlay.addEventListener('click', (e) => {
+            if (e.target === studentHubOverlay) studentHubOverlay.classList.remove('visible');
+        });
+    }
+
+    // Tab Switching
+    function switchStudentTab(tab) {
+        if (tab === 'new') {
+            tabBtnNew?.classList.add('active');
+            tabBtnMy?.classList.remove('active');
+            tabPaneNew?.classList.add('active');
+            tabPaneMy?.classList.remove('active');
+        } else {
+            tabBtnMy?.classList.add('active');
+            tabBtnNew?.classList.remove('active');
+            tabPaneMy?.classList.add('active');
+            tabPaneNew?.classList.remove('active');
+            loadMyStudentSubmissions();
+        }
+    }
+
+    if (tabBtnNew && tabBtnMy) {
+        tabBtnNew.addEventListener('click', () => switchStudentTab('new'));
+        tabBtnMy.addEventListener('click', () => switchStudentTab('my'));
+    }
+
+    if (btnRefreshMySubmissions) {
+        btnRefreshMySubmissions.addEventListener('click', () => loadMyStudentSubmissions());
+    }
+
+    // Category Selector
+    categoryCards.forEach(card => {
+        card.addEventListener('click', () => {
+            categoryCards.forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            const radio = card.querySelector('input[type="radio"]');
+            if (radio) radio.checked = true;
+
+            // Show photo target selector if photo submission
+            if (radio && radio.value === 'photo_submission') {
+                if (photoTargetGroup) photoTargetGroup.style.display = 'block';
+            } else {
+                if (photoTargetGroup) photoTargetGroup.style.display = 'none';
+            }
+        });
+    });
+
+    // File Attachment Handling
+    if (fileDropZone && contribFileInput) {
+        fileDropZone.addEventListener('click', (e) => {
+            if (e.target !== btnRemoveFile && !btnRemoveFile?.contains(e.target)) {
+                contribFileInput.click();
+            }
+        });
+
+        fileDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileDropZone.style.borderColor = 'var(--accent-primary)';
+        });
+
+        fileDropZone.addEventListener('dragleave', () => {
+            fileDropZone.style.borderColor = 'var(--border-light)';
+        });
+
+        fileDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileDropZone.style.borderColor = 'var(--border-light)';
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleAttachmentFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        contribFileInput.addEventListener('change', () => {
+            if (contribFileInput.files && contribFileInput.files[0]) {
+                handleAttachmentFile(contribFileInput.files[0]);
+            }
+        });
+    }
+
+    function handleAttachmentFile(file) {
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            showStudentHubStatus('Please select a valid image file (JPG, PNG, WebP).', 'error');
+            clearAttachmentFile();
+            return;
+        }
+
+        const maxBytes = 5 * 1024 * 1024; // 5 MB
+        if (file.size > maxBytes) {
+            showStudentHubStatus('Image size must not exceed 5 MB.', 'error');
+            clearAttachmentFile();
+            return;
+        }
+
+        currentSelectedFile = file;
+        if (filePreviewName) filePreviewName.textContent = file.name;
+        if (filePreviewSize) filePreviewSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+        
+        const previewUrl = URL.createObjectURL(file);
+        if (filePreviewImg) filePreviewImg.src = previewUrl;
+
+        if (fileDropPrompt) fileDropPrompt.style.display = 'none';
+        if (filePreviewWrap) filePreviewWrap.style.display = 'flex';
+        hideStudentHubStatus();
+    }
+
+    function clearAttachmentFile() {
+        currentSelectedFile = null;
+        if (contribFileInput) contribFileInput.value = '';
+        if (filePreviewImg) filePreviewImg.src = '';
+        if (fileDropPrompt) fileDropPrompt.style.display = 'flex';
+        if (filePreviewWrap) filePreviewWrap.style.display = 'none';
+    }
+
+    if (btnRemoveFile) {
+        btnRemoveFile.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearAttachmentFile();
+        });
+    }
+
+    function showStudentHubStatus(msg, type = 'success') {
+        if (!studentHubStatus) return;
+        studentHubStatus.textContent = msg;
+        studentHubStatus.className = `hub-status-box ${type}`;
+        studentHubStatus.style.display = 'flex';
+    }
+
+    function hideStudentHubStatus() {
+        if (studentHubStatus) {
+            studentHubStatus.style.display = 'none';
+            studentHubStatus.textContent = '';
+        }
+    }
+
+    // Form Submission
+    if (contribForm) {
+        contribForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideStudentHubStatus();
+
+            const submitBtn = document.getElementById('btn-submit-contribution');
+            const originalBtnHtml = submitBtn ? submitBtn.innerHTML : 'Submit Contribution';
+
+            try {
+                // 1. Verify Active Session
+                const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+                if (sessionError || !session) {
+                    throw new Error('You must be logged in with Google to submit a contribution.');
+                }
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span>Submitting... <span class="spinner" style="margin:0; width:14px; height:14px; border-width:2px; vertical-align:middle; display:inline-block;"></span></span>';
+                }
+
+                // 2. Gather Inputs
+                const checkedRadio = document.querySelector('input[name="contribution-category"]:checked');
+                const category = checkedRadio ? checkedRadio.value : 'general_feedback';
+                const title = (document.getElementById('contrib-title')?.value || '').trim();
+                let description = (document.getElementById('contrib-desc')?.value || '').trim();
+
+                if (category === 'photo_submission') {
+                    const intendedTarget = document.getElementById('photo-intended-target')?.value || 'Gallery';
+                    description = `[Intended For: ${intendedTarget}]\n${description}`;
+                }
+
+                if (!title || !description) {
+                    throw new Error('Please fill in both title and description.');
+                }
+
+                let attachmentPath = null;
+                let attachmentType = null;
+
+                // 3. Process Attachment if Provided
+                if (currentSelectedFile) {
+                    showStudentHubStatus('Processing image attachment...', 'success');
+                    let fileToUpload = currentSelectedFile;
+
+                    // Compress Image if compressor library available
+                    if (typeof imageCompression === 'function') {
+                        try {
+                            const compressionOptions = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
+                            fileToUpload = await imageCompression(currentSelectedFile, compressionOptions);
+                        } catch (compErr) {
+                            console.warn('[Student Hub] Image compression skipped:', compErr);
+                        }
+                    }
+
+                    const safeName = (fileToUpload.name || 'attachment.jpg').replace(/[^a-zA-Z0-9.\-_]/g, '_');
+                    const uploadPath = `${session.user.id}/${Date.now()}_${safeName}`;
+
+                    const { error: uploadError } = await supabaseClient.storage
+                        .from('student-contributions')
+                        .upload(uploadPath, fileToUpload, {
+                            contentType: fileToUpload.type,
+                            upsert: false
+                        });
+
+                    if (uploadError) {
+                        console.error('[Student Hub] Upload error:', uploadError);
+                        throw new Error('Failed to upload image attachment. ' + (uploadError.message || ''));
+                    }
+
+                    attachmentPath = uploadPath;
+                    attachmentType = fileToUpload.type;
+                }
+
+                // 4. Insert into Database using Trusted auth.uid()
+                const payload = {
+                    user_id: session.user.id,
+                    category: category,
+                    title: title,
+                    description: description,
+                    attachment_path: attachmentPath,
+                    attachment_type: attachmentType,
+                    status: 'pending'
+                };
+
+                const { error: dbError } = await supabaseClient
+                    .from('student_contributions')
+                    .insert([payload]);
+
+                if (dbError) {
+                    console.error('[Student Hub] DB error:', dbError);
+                    throw new Error('Failed to save your submission. Please try again.');
+                }
+
+                // 5. Success State
+                showStudentHubStatus('Your contribution has been submitted successfully! The YSR Academy team will review it.', 'success');
+                contribForm.reset();
+                clearAttachmentFile();
+                if (photoTargetGroup) photoTargetGroup.style.display = 'none';
+                
+                // Select first category card
+                categoryCards.forEach((c, idx) => {
+                    c.classList.toggle('selected', idx === 0);
+                    const r = c.querySelector('input[type="radio"]');
+                    if (r) r.checked = (idx === 0);
+                });
+
+                // Auto switch to My Submissions after 2 seconds
+                setTimeout(() => {
+                    switchStudentTab('my');
+                }, 1800);
+
+            } catch (err) {
+                console.error('[Student Hub] Submission failed:', err);
+                showStudentHubStatus(err.message || 'An error occurred during submission.', 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnHtml;
+                }
+            }
+        });
+    }
+
+    // Load My Submissions
+    async function loadMyStudentSubmissions() {
+        if (!mySubmissionsList) return;
+        mySubmissionsList.innerHTML = `
+            <div class="empty-hub-state">
+                <div class="spinner" style="margin: 0 auto 1rem; width: 28px; height: 28px; border-width: 3px;"></div>
+                <div class="empty-hub-title">Loading your submissions...</div>
+            </div>
+        `;
+
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                mySubmissionsList.innerHTML = `
+                    <div class="empty-hub-state">
+                        <div class="empty-hub-icon">🔒</div>
+                        <div class="empty-hub-title">Session Expired</div>
+                        <div class="empty-hub-subtitle">Please sign in to view your contributions.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const { data: items, error } = await supabaseClient
+                .from('student_contributions')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (!items || items.length === 0) {
+                if (mySubmissionsCount) mySubmissionsCount.textContent = '0 submissions found';
+                mySubmissionsList.innerHTML = `
+                    <div class="empty-hub-state">
+                        <div class="empty-hub-icon">✨</div>
+                        <div class="empty-hub-title">No Submissions Yet</div>
+                        <div class="empty-hub-subtitle">Have an idea, photo, or feedback? Use the "Submit Contribution" tab to share it with our mentors.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (mySubmissionsCount) {
+                mySubmissionsCount.textContent = `${items.length} contribution${items.length === 1 ? '' : 's'}`;
+            }
+
+            // Generate HTML for each item
+            let html = '';
+            for (const item of items) {
+                const cat = getCategoryMeta(item.category);
+                const dateStr = new Date(item.created_at).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+
+                let attachmentHtml = '';
+                if (item.attachment_path) {
+                    try {
+                        const { data: signedData } = await supabaseClient.storage
+                            .from('student-contributions')
+                            .createSignedUrl(item.attachment_path, 3600);
+                        
+                        if (signedData?.signedUrl) {
+                            attachmentHtml = `
+                                <div class="sub-attachment-thumb-wrap" onclick="openAttachmentLightbox('${signedData.signedUrl}', '${item.title.replace(/'/g, "\\'")}')">
+                                    <img src="${signedData.signedUrl}" alt="Attachment">
+                                    <span>View Image</span>
+                                </div>
+                            `;
+                        }
+                    } catch (sErr) {
+                        console.warn('[Student Hub] Signed URL error:', sErr);
+                    }
+                }
+
+                let adminNoteHtml = '';
+                if (item.admin_notes && item.admin_notes.trim()) {
+                    adminNoteHtml = `
+                        <div class="sub-admin-note">
+                            <strong>Note from YSR Academy Team:</strong>
+                            ${escapeHtml(item.admin_notes)}
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="submission-card">
+                        <div class="sub-card-header">
+                            <h4 class="sub-card-title">${escapeHtml(item.title)}</h4>
+                            ${getStatusBadgeHtml(item.status)}
+                        </div>
+                        <div class="sub-card-tags">
+                            <span class="category-badge-chip">${cat.icon} ${cat.label}</span>
+                        </div>
+                        <p class="sub-card-desc">${escapeHtml(item.description)}</p>
+                        ${adminNoteHtml}
+                        <div class="sub-card-meta">
+                            <span>Submitted on ${dateStr}</span>
+                            ${attachmentHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            mySubmissionsList.innerHTML = html;
+
+        } catch (err) {
+            console.error('[Student Hub] Failed to load my submissions:', err);
+            mySubmissionsList.innerHTML = `
+                <div class="empty-hub-state">
+                    <div class="empty-hub-icon">⚠️</div>
+                    <div class="empty-hub-title">Unable to Load Submissions</div>
+                    <div class="empty-hub-subtitle">Check your connection and click refresh.</div>
+                </div>
+            `;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // B. ADMIN CONTRIBUTIONS REVIEW SYSTEM (ADMIN-ONLY)
+    // -------------------------------------------------------------------------
+    const adminContribBtn = document.getElementById('admin-contrib-btn');
+    const adminReviewOverlay = document.getElementById('admin-review-modal-overlay');
+    const closeAdminReviewBtn = document.getElementById('close-admin-review-modal');
+    const adminFilterBtns = document.querySelectorAll('.admin-filter-btn');
+    const adminContributionsContainer = document.getElementById('admin-contributions-container');
+    const adminReviewStatus = document.getElementById('admin-review-status');
+    const pendingNavBadge = document.getElementById('pending-contributions-count');
+
+    let currentAdminFilter = 'all';
+    let cachedAdminContributions = [];
+
+    // Open/Close Admin Review Modal
+    if (adminContribBtn && adminReviewOverlay) {
+        adminContribBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            adminReviewOverlay.classList.add('visible');
+            fetchAndRenderAdminContributions();
+        });
+
+        if (closeAdminReviewBtn) {
+            closeAdminReviewBtn.addEventListener('click', () => adminReviewOverlay.classList.remove('visible'));
+        }
+
+        adminReviewOverlay.addEventListener('click', (e) => {
+            if (e.target === adminReviewOverlay) adminReviewOverlay.classList.remove('visible');
+        });
+    }
+
+    // Filter Buttons
+    adminFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            adminFilterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentAdminFilter = btn.dataset.filter || 'all';
+            renderAdminContributionsList();
+        });
+    });
+
+    // Badge Updater for Pending Count
+    window.updateAdminPendingContributionsBadge = async function() {
+        if (!isAdmin()) return;
+        try {
+            const { count, error } = await supabaseClient
+                .from('student_contributions')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'pending');
+
+            if (!error && pendingNavBadge) {
+                const num = count || 0;
+                pendingNavBadge.textContent = num;
+                pendingNavBadge.style.display = num > 0 ? 'inline-block' : 'none';
+            }
+        } catch (err) {
+            console.warn('[Admin Hub] Pending badge check skipped:', err);
+        }
+    };
+
+    async function fetchAndRenderAdminContributions() {
+        if (!adminContributionsContainer) return;
+        adminContributionsContainer.innerHTML = `
+            <div class="empty-hub-state">
+                <div class="spinner" style="margin: 0 auto 1rem; width: 32px; height: 32px; border-width: 3px;"></div>
+                <div class="empty-hub-title">Loading student contributions...</div>
+            </div>
+        `;
+
+        try {
+            const { data: items, error } = await supabaseClient
+                .from('student_contributions')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            cachedAdminContributions = items || [];
+
+            // Update Counts in Filter Tabs
+            updateAdminFilterCounts(cachedAdminContributions);
+
+            // Render current view
+            await renderAdminContributionsList();
+
+            // Refresh pending badge
+            window.updateAdminPendingContributionsBadge();
+
+        } catch (err) {
+            console.error('[Admin Hub] Failed to fetch contributions:', err);
+            adminContributionsContainer.innerHTML = `
+                <div class="empty-hub-state">
+                    <div class="empty-hub-icon">⚠️</div>
+                    <div class="empty-hub-title">Error Loading Contributions</div>
+                    <div class="empty-hub-subtitle">${escapeHtml(err.message || 'Check console details.')}</div>
+                </div>
+            `;
+        }
+    }
+
+    function updateAdminFilterCounts(items) {
+        const counts = { all: items.length, pending: 0, approved: 0, implemented: 0, rejected: 0 };
+        items.forEach(it => {
+            const s = (it.status || 'pending').toLowerCase();
+            if (counts[s] !== undefined) counts[s]++;
+        });
+
+        document.getElementById('count-all') && (document.getElementById('count-all').textContent = counts.all);
+        document.getElementById('count-pending') && (document.getElementById('count-pending').textContent = counts.pending);
+        document.getElementById('count-approved') && (document.getElementById('count-approved').textContent = counts.approved);
+        document.getElementById('count-implemented') && (document.getElementById('count-implemented').textContent = counts.implemented);
+        document.getElementById('count-rejected') && (document.getElementById('count-rejected').textContent = counts.rejected);
+    }
+
+    async function renderAdminContributionsList() {
+        if (!adminContributionsContainer) return;
+
+        const filtered = cachedAdminContributions.filter(it => {
+            if (currentAdminFilter === 'all') return true;
+            return (it.status || 'pending').toLowerCase() === currentAdminFilter;
+        });
+
+        if (filtered.length === 0) {
+            adminContributionsContainer.innerHTML = `
+                <div class="empty-hub-state">
+                    <div class="empty-hub-icon">📭</div>
+                    <div class="empty-hub-title">No ${currentAdminFilter} contributions</div>
+                    <div class="empty-hub-subtitle">Submissions in this category will appear here.</div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        for (const item of filtered) {
+            const cat = getCategoryMeta(item.category);
+            const dateStr = new Date(item.created_at).toLocaleString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            let attachmentHtml = '';
+            if (item.attachment_path) {
+                try {
+                    const { data: signedData } = await supabaseClient.storage
+                        .from('student-contributions')
+                        .createSignedUrl(item.attachment_path, 3600);
+
+                    if (signedData?.signedUrl) {
+                        attachmentHtml = `
+                            <div class="sub-attachment-thumb-wrap" onclick="openAttachmentLightbox('${signedData.signedUrl}', '${item.title.replace(/'/g, "\\'")}')">
+                                <img src="${signedData.signedUrl}" alt="Attachment Preview">
+                                <span>Preview Photo (${item.attachment_type || 'image'})</span>
+                            </div>
+                        `;
+                    }
+                } catch (sErr) {
+                    console.warn('[Admin Hub] Signed URL error:', sErr);
+                }
+            }
+
+            const currentNote = item.admin_notes || '';
+            const userIdShort = item.user_id ? item.user_id.slice(0, 8) + '...' : 'Student';
+
+            html += `
+                <div class="admin-sub-card" data-id="${item.id}">
+                    <div class="admin-sub-card-top">
+                        <div>
+                            <div class="admin-user-info">
+                                <span class="category-badge-chip">${cat.icon} ${cat.label}</span>
+                                <span>User ID: <span class="user-id-code">${userIdShort}</span></span>
+                                <span>&bull; ${dateStr}</span>
+                            </div>
+                            <h4 class="sub-card-title">${escapeHtml(item.title)}</h4>
+                        </div>
+                        <div>
+                            ${getStatusBadgeHtml(item.status)}
+                        </div>
+                    </div>
+
+                    <p class="sub-card-desc">${escapeHtml(item.description)}</p>
+
+                    ${attachmentHtml}
+
+                    <div class="admin-note-form">
+                        <input type="text" class="admin-note-input" id="note-input-${item.id}" value="${escapeHtml(currentNote)}" placeholder="Add/edit team note for student...">
+                        <button type="button" class="btn-save-note" data-id="${item.id}">Save Note</button>
+                    </div>
+
+                    <div class="admin-actions-bar">
+                        <div class="admin-status-actions">
+                            <button type="button" class="btn-status-act approve" data-id="${item.id}" data-status="approved">
+                                ✅ Approve
+                            </button>
+                            <button type="button" class="btn-status-act implement" data-id="${item.id}" data-status="implemented">
+                                🚀 Mark Implemented
+                            </button>
+                            <button type="button" class="btn-status-act reject" data-id="${item.id}" data-status="rejected">
+                                ❌ Reject
+                            </button>
+                        </div>
+                        <button type="button" class="btn-delete-contrib" data-id="${item.id}" data-path="${item.attachment_path || ''}">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        adminContributionsContainer.innerHTML = html;
+        attachAdminCardEventListeners();
+    }
+
+    function attachAdminCardEventListeners() {
+        if (!adminContributionsContainer) return;
+
+        // Status change buttons
+        adminContributionsContainer.querySelectorAll('.btn-status-act').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const newStatus = btn.dataset.status;
+                if (!id || !newStatus) return;
+
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner" style="margin:0; width:12px; height:12px; border-width:2px;"></span>';
+
+                try {
+                    const { error } = await supabaseClient
+                        .from('student_contributions')
+                        .update({ status: newStatus, updated_at: new Date().toISOString() })
+                        .eq('id', id);
+
+                    if (error) throw error;
+                    
+                    // Update cache
+                    const found = cachedAdminContributions.find(it => it.id === id);
+                    if (found) found.status = newStatus;
+
+                    updateAdminFilterCounts(cachedAdminContributions);
+                    await renderAdminContributionsList();
+                    window.updateAdminPendingContributionsBadge();
+
+                } catch (err) {
+                    console.error('[Admin Hub] Status update failed:', err);
+                    alert('Failed to update status: ' + (err.message || 'Check console'));
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            });
+        });
+
+        // Save Note buttons
+        adminContributionsContainer.querySelectorAll('.btn-save-note').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const input = document.getElementById(`note-input-${id}`);
+                if (!id || !input) return;
+
+                const noteText = input.value.trim();
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                try {
+                    const { error } = await supabaseClient
+                        .from('student_contributions')
+                        .update({ admin_notes: noteText, updated_at: new Date().toISOString() })
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    const found = cachedAdminContributions.find(it => it.id === id);
+                    if (found) found.admin_notes = noteText;
+
+                    btn.textContent = 'Saved!';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }, 1200);
+
+                } catch (err) {
+                    console.error('[Admin Hub] Save note failed:', err);
+                    alert('Failed to save note: ' + (err.message || 'Check console'));
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            });
+        });
+
+        // Delete buttons
+        adminContributionsContainer.querySelectorAll('.btn-delete-contrib').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const path = btn.dataset.path;
+                if (!id || !confirm('Are you sure you want to permanently delete this contribution?')) return;
+
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner" style="margin:0; width:12px; height:12px; border-width:2px;"></span>';
+
+                try {
+                    // Delete DB record
+                    const { error } = await supabaseClient
+                        .from('student_contributions')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    // If attachment existed, remove from storage
+                    if (path) {
+                        try {
+                            await supabaseClient.storage.from('student-contributions').remove([path]);
+                        } catch (stErr) {
+                            console.warn('[Admin Hub] Storage delete error:', stErr);
+                        }
+                    }
+
+                    // Update cache
+                    cachedAdminContributions = cachedAdminContributions.filter(it => it.id !== id);
+                    updateAdminFilterCounts(cachedAdminContributions);
+                    await renderAdminContributionsList();
+                    window.updateAdminPendingContributionsBadge();
+
+                } catch (err) {
+                    console.error('[Admin Hub] Delete failed:', err);
+                    alert('Failed to delete contribution: ' + (err.message || 'Check console'));
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            });
+        });
+    }
+
+    // Helper: HTML sanitization
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+

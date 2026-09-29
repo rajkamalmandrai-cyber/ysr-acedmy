@@ -287,6 +287,8 @@
                     </button>
                 </li>
                 <li class="nav-action-item"><a href="#" class="btn btn-portal" id="portal-btn">Login</a></li>
+                <li class="nav-action-item" id="student-hub-nav-item" style="display: none;"><a href="#" class="btn btn-portal btn-student-hub" id="student-hub-btn">🎓 Student Hub</a></li>
+                <li class="nav-action-item" id="admin-contrib-nav-item" style="display: none;"><a href="#" class="btn btn-portal btn-admin-contrib" id="admin-contrib-btn">📥 Contributions <span class="badge" id="pending-contributions-count" style="display:none;">0</span></a></li>
                 <li class="nav-action-item" style="display: none;"><a href="#" class="btn btn-portal" id="logout-btn">Logout</a></li>
             </ul>
             <div class="hamburger"><span></span><span></span><span></span></div>
@@ -934,7 +936,168 @@
             </form>
         </div>
     </div>
- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Student Feedback & Contribution Hub Modal -->
+    <div class="hub-modal-overlay" id="student-hub-modal-overlay">
+        <div class="hub-modal">
+            <button class="close-modal-btn" id="close-student-hub-modal" aria-label="Close modal">&times;</button>
+            <div class="hub-header">
+                <div class="hub-icon-badge">🎓</div>
+                <div class="hub-header-text">
+                    <h3 class="hub-title">Help Us Improve YSR Academy</h3>
+                    <p class="hub-subtitle">Have an idea, photo, announcement or website issue? Send it directly to the YSR Academy team.</p>
+                </div>
+            </div>
+
+            <!-- Hub Navigation Tabs -->
+            <div class="hub-tabs">
+                <button type="button" class="hub-tab-btn active" id="tab-btn-new-contribution">
+                    <span>💡 Submit Contribution</span>
+                </button>
+                <button type="button" class="hub-tab-btn" id="tab-btn-my-submissions">
+                    <span>📋 My Submissions</span>
+                </button>
+            </div>
+
+            <!-- Tab 1: New Submission Form -->
+            <div class="hub-tab-pane active" id="tab-pane-new-contribution">
+                <form id="student-contribution-form">
+                    <div class="form-group">
+                        <label class="form-label">Contribution Category <span class="required">*</span></label>
+                        <div class="category-selector-grid" id="category-selector-grid">
+                            <label class="category-card selected">
+                                <input type="radio" name="contribution-category" value="feature_suggestion" checked>
+                                <span class="cat-icon">💡</span>
+                                <span class="cat-label">Suggest an Update</span>
+                            </label>
+                            <label class="category-card">
+                                <input type="radio" name="contribution-category" value="photo_submission">
+                                <span class="cat-icon">📸</span>
+                                <span class="cat-label">Submit a Photo</span>
+                            </label>
+                            <label class="category-card">
+                                <input type="radio" name="contribution-category" value="announcement_request">
+                                <span class="cat-icon">📢</span>
+                                <span class="cat-label">Request Announcement</span>
+                            </label>
+                            <label class="category-card">
+                                <input type="radio" name="contribution-category" value="bug_report">
+                                <span class="cat-icon">🐞</span>
+                                <span class="cat-label">Report Problem</span>
+                            </label>
+                            <label class="category-card">
+                                <input type="radio" name="contribution-category" value="general_feedback">
+                                <span class="cat-icon">💬</span>
+                                <span class="cat-label">General Feedback</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Photo Target Selection (Shown only when category is photo_submission) -->
+                    <div class="form-group" id="photo-target-group" style="display: none;">
+                        <label class="form-label" for="photo-intended-target">Intended For <span class="required">*</span></label>
+                        <select id="photo-intended-target" class="form-select">
+                            <option value="Gallery">Gallery (Campus & Events)</option>
+                            <option value="Champions">Champions (Achievements / Banners)</option>
+                            <option value="Event">Event Celebration</option>
+                            <option value="Toppers">Toppers & Results</option>
+                            <option value="Other">Other / Miscellaneous</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="contrib-title">Title / Summary <span class="required">*</span></label>
+                        <input type="text" id="contrib-title" class="form-input" placeholder="e.g. Add online mock test schedule / Upload Chem lab photo" required maxlength="150">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="contrib-desc">Description / Details <span class="required">*</span></label>
+                        <textarea id="contrib-desc" class="form-textarea" rows="4" placeholder="Describe your suggestion, the photo event, announcement details, or how to reproduce the issue..." required maxlength="2000"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Attachment (Optional)</label>
+                        <div class="file-drop-zone" id="file-drop-zone">
+                            <input type="file" id="contrib-file-input" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                            <div class="file-drop-prompt" id="file-drop-prompt">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                <span>Click or drag image here (JPG, PNG, WebP &bull; Max 5 MB)</span>
+                            </div>
+                            <div class="file-preview-wrap" id="file-preview-wrap" style="display: none;">
+                                <img id="file-preview-img" src="" alt="Selected Preview">
+                                <div class="file-preview-meta">
+                                    <span id="file-preview-name">image.jpg</span>
+                                    <span id="file-preview-size">0 KB</span>
+                                </div>
+                                <button type="button" class="btn-remove-file" id="btn-remove-file" title="Remove attachment">&times;</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hub-status-box" id="student-hub-status" style="display: none;"></div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary w-100" id="btn-submit-contribution">
+                            <span>Submit Contribution</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tab 2: My Submissions List -->
+            <div class="hub-tab-pane" id="tab-pane-my-submissions">
+                <div class="my-submissions-header">
+                    <span class="submissions-count-label" id="my-submissions-count">Loading your submissions...</span>
+                    <button type="button" class="btn-refresh-submissions" id="btn-refresh-my-submissions" title="Refresh list">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    </button>
+                </div>
+                <div class="submissions-list" id="my-submissions-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Submissions Review Modal -->
+    <div class="hub-modal-overlay" id="admin-review-modal-overlay">
+        <div class="hub-modal admin-review-modal-content">
+            <button class="close-modal-btn" id="close-admin-review-modal" aria-label="Close modal">&times;</button>
+            <div class="hub-header">
+                <div class="hub-icon-badge" style="background: rgba(var(--accent-secondary-rgb, 139, 92, 246), 0.15); color: var(--accent-secondary);">📥</div>
+                <div class="hub-header-text">
+                    <h3 class="hub-title">Student Contributions Review</h3>
+                    <p class="hub-subtitle">Review suggestions, feedback, and student photo uploads. Contributions remain private until you choose to publish them.</p>
+                </div>
+            </div>
+
+            <!-- Admin Filters -->
+            <div class="admin-filter-bar">
+                <button type="button" class="admin-filter-btn active" data-filter="all">All (<span id="count-all">0</span>)</button>
+                <button type="button" class="admin-filter-btn" data-filter="pending">Pending (<span id="count-pending">0</span>)</button>
+                <button type="button" class="admin-filter-btn" data-filter="approved">Approved (<span id="count-approved">0</span>)</button>
+                <button type="button" class="admin-filter-btn" data-filter="implemented">Implemented (<span id="count-implemented">0</span>)</button>
+                <button type="button" class="admin-filter-btn" data-filter="rejected">Rejected (<span id="count-rejected">0</span>)</button>
+            </div>
+
+            <div class="hub-status-box" id="admin-review-status" style="display: none;"></div>
+
+            <div class="admin-contributions-container" id="admin-contributions-container">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Attachment Lightbox Modal -->
+    <div class="hub-lightbox-overlay" id="hub-lightbox-overlay">
+        <button class="close-modal-btn lightbox-close" id="close-hub-lightbox">&times;</button>
+        <div class="hub-lightbox-content">
+            <img id="hub-lightbox-img" src="" alt="Attachment Preview">
+            <div class="lightbox-caption" id="hub-lightbox-caption"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script src="scripts.js"></script>
 
