@@ -4102,3 +4102,216 @@ body.is-admin .admin-controls {
     }
 }
 
+/* ==========================================================================
+   HISTORICAL COURSE ACHIEVERS / TOPPERS (SEPARATE SYSTEM)
+   ========================================================================== */
+.achievers-section {
+    margin-top: 3.5rem;
+    margin-bottom: 3.5rem;
+}
+
+.achievers-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.achievers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.75rem;
+    margin-top: 1rem;
+}
+
+.achiever-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 2rem 1.25rem 1.5rem;
+    text-align: center;
+    position: relative;
+    transition: var(--transition-smooth);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.achiever-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(var(--accent-primary-rgb), 0.5);
+    box-shadow: 0 12px 30px rgba(var(--accent-primary-rgb), 0.2);
+}
+
+[data-theme="light"] .achiever-card {
+    background: var(--card-bg);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="light"] .achiever-card:hover {
+    box-shadow: 0 12px 30px rgba(30, 64, 175, 0.12);
+}
+
+.achiever-img-wrapper {
+    width: 105px;
+    height: 105px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 1.15rem;
+    border: 3px solid rgba(var(--accent-primary-rgb), 0.35);
+    transition: var(--transition-smooth);
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.achiever-card:hover .achiever-img-wrapper {
+    border-color: var(--accent-primary);
+    transform: scale(1.05);
+}
+
+.achiever-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.achiever-card h4 {
+    font-family: var(--font-primary);
+    font-size: 1.15rem;
+    color: var(--text-primary);
+    margin: 0 0 0.35rem;
+    font-weight: 700;
+}
+
+.achiever-subject {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin: 0 0 0.85rem;
+    line-height: 1.4;
+}
+
+.achiever-achievement {
+    display: inline-block;
+    padding: 0.35rem 0.95rem;
+    background: rgba(var(--accent-primary-rgb), 0.12);
+    color: var(--accent-primary);
+    border: 1px solid rgba(var(--accent-primary-rgb), 0.35);
+    border-radius: 20px;
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.achiever-year {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-light);
+    padding: 0.2rem 0.65rem;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+[data-theme="light"] .achiever-year {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.achiever-admin-actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: none;
+    gap: 6px;
+    z-index: 5;
+}
+
+body.is-admin .achiever-admin-actions {
+    display: flex;
+}
+
+.btn-edit-historical-topper,
+.btn-delete-historical-topper {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.btn-edit-historical-topper:hover {
+    background: var(--accent-primary);
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+.btn-delete-historical-topper:hover {
+    background: var(--accent-danger);
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+.achiever-card.is-inactive {
+    opacity: 0.65;
+    border-style: dashed;
+}
+
+.achiever-badge.inactive {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-danger);
+    border-radius: 8px;
+    margin-top: 0.5rem;
+    font-weight: 600;
+}
+
+.achievers-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 3rem 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    border: 1px dashed var(--border-light);
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .achievers-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+    .achiever-card {
+        padding: 1.25rem 0.75rem 1rem;
+    }
+    .achiever-img-wrapper {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 0.75rem;
+    }
+    .achiever-card h4 {
+        font-size: 1rem;
+    }
+    .achiever-achievement {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.65rem;
+    }
+}
+

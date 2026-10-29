@@ -1128,23 +1128,190 @@ if (themeToggleBtn) {
 
     loadAllToppers();
 
+    // --- 10.5 HISTORICAL COURSE TOPPERS SYSTEM (SEPARATE SUPABASE SYSTEM) ---
+    const HISTORICAL_TOPPERS_TABLE = 'historical_course_toppers';
+    const HISTORICAL_TOPPERS_BUCKET = 'historical-course-topper-photos';
+    let allHistoricalToppers = [];
+    let currentHistoricalTopperEditId = null;
+
+    const editTopperId = document.getElementById('edit-topper-id');
+    const editTopperPhoto = document.getElementById('edit-topper-photo');
+    const editTopperCourse = document.getElementById('edit-topper-course');
+    const editTopperSubject = document.getElementById('edit-topper-subject');
+    const editTopperYear = document.getElementById('edit-topper-year');
+    const editTopperAchievement = document.getElementById('edit-topper-achievement');
+    const editTopperOrder = document.getElementById('edit-topper-order');
+    const editTopperActive = document.getElementById('edit-topper-active');
+
+    async function loadHistoricalToppers(course = 'IIT-JEE') {
+        const grid = document.getElementById('jee-achievers-grid') || document.querySelector(`.achievers-grid[data-course="${course}"]`);
+        if (!grid) return;
+
+        console.log(`[Historical Toppers] Loading achievers for ${course}...`);
+
+        try {
+            let query = supabaseClient
+                .from(HISTORICAL_TOPPERS_TABLE)
+                .select('*')
+                .or(`course_name.eq.${course},course_name.eq.IIT JEE`)
+                .order('academic_year', { ascending: false })
+                .order('display_order', { ascending: true })
+                .order('created_at', { ascending: false });
+
+            if (!isAdmin()) {
+                query = query.eq('is_active', true);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            allHistoricalToppers = data || [];
+            console.log(`[Historical Toppers] Loaded ${allHistoricalToppers.length} records.`);
+
+            grid.innerHTML = '';
+
+            if (allHistoricalToppers.length === 0) {
+                grid.innerHTML = `
+                    <div class="achievers-empty">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.75rem; opacity: 0.7;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        <p style="margin: 0; font-weight: 500;">Historical achievements and toppers for ${course} will be showcased here soon.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const defaultAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300D9FF'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/></svg>";
+
+            allHistoricalToppers.forEach(topper => {
+                const card = document.createElement('div');
+                card.className = `achiever-card ${topper.is_active ? '' : 'is-inactive'}`;
+                card.innerHTML = `
+                    <div class="achiever-img-wrapper">
+                        <img src="${topper.photo_url || defaultAvatar}" alt="${escapeHtml(topper.student_name)} - ${course} Achiever at YSR Academy" loading="lazy" decoding="async" width="105" height="105" onerror="this.src='${defaultAvatar}'">
+                    </div>
+                    <h4>${escapeHtml(topper.student_name)}</h4>
+                    <p class="achiever-subject">${escapeHtml(topper.subject || 'IIT-JEE (Main + Advanced)')}</p>
+                    <div class="achiever-achievement">${escapeHtml(topper.achievement)}</div>
+                    <span class="achiever-year">${escapeHtml(topper.academic_year)}</span>
+                    ${!topper.is_active && isAdmin() ? '<span class="achiever-badge inactive">Hidden from Public</span>' : ''}
+                    ${isAdmin() ? `
+                        <div class="achiever-admin-actions">
+                            <button class="btn-edit-historical-topper" data-id="${topper.id}" aria-label="Edit Achiever">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                            <button class="btn-delete-historical-topper" data-id="${topper.id}" aria-label="Delete Achiever">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </button>
+                        </div>
+                    ` : ''}
+                `;
+                grid.appendChild(card);
+            });
+        } catch (err) {
+            console.error('[Historical Toppers] Error loading achievers:', err);
+            grid.innerHTML = `
+                <div class="achievers-empty">
+                    <p style="margin: 0; color: var(--text-secondary);">Historical achievements and toppers for ${course} will be showcased here soon.</p>
+                </div>
+            `;
+        }
+    }
+
+    // Initial load for Historical Toppers on dedicated course pages
+    loadHistoricalToppers('IIT-JEE');
+
     document.addEventListener('click', (e) => {
         const addTopperBtn = e.target.closest('.btn-add-topper');
+        const addHistoricalTopperBtn = e.target.closest('.btn-add-historical-topper');
+        const editHistoricalBtn = e.target.closest('.btn-edit-historical-topper');
+        const deleteHistoricalBtn = e.target.closest('.btn-delete-historical-topper');
         const editTopperBtn = e.target.closest('.btn-edit-topper');
         const deleteTopperBtn = e.target.closest('.btn-delete-topper');
 
         if (!isAdmin()) return;
 
+        // Add Achiever button on dedicated page
+        if (addHistoricalTopperBtn) {
+            e.preventDefault();
+            const course = addHistoricalTopperBtn.dataset.course || 'IIT-JEE';
+            currentCourseForTopper = course;
+            currentHistoricalTopperEditId = null;
+            if (topperModalTitle) topperModalTitle.textContent = `Add ${course} Achiever`;
+            if (topperEditForm) topperEditForm.reset();
+            if (editTopperId) editTopperId.value = '';
+            if (editTopperCourse) editTopperCourse.value = course;
+            if (editTopperActive) editTopperActive.checked = true;
+            if (editTopperOrder) editTopperOrder.value = 0;
+            if (editTopperPhoto) editTopperPhoto.required = true;
+            if (topperModalOverlay) topperModalOverlay.classList.add('visible');
+            return;
+        }
+
+        // Add Topper button on homepage course card
         if (addTopperBtn) {
             e.preventDefault();
             const card = addTopperBtn.closest('.course-card');
-            currentCourseForTopper = card.dataset.course;
-            currentTopperEditId = null;
-            if (topperModalTitle) topperModalTitle.textContent = `Add ${currentCourseForTopper} Topper`;
-            if (topperEditForm) topperEditForm.reset();
-            if (topperModalOverlay) topperModalOverlay.classList.add('visible');
+            currentCourseForTopper = card?.dataset.course || 'IIT-JEE';
+
+            // If IIT-JEE, route to the new Historical Topper workflow
+            if (currentCourseForTopper === 'IIT JEE' || currentCourseForTopper === 'IIT-JEE') {
+                currentCourseForTopper = 'IIT-JEE';
+                currentHistoricalTopperEditId = null;
+                if (topperModalTitle) topperModalTitle.textContent = `Add IIT-JEE Achiever`;
+                if (topperEditForm) topperEditForm.reset();
+                if (editTopperId) editTopperId.value = '';
+                if (editTopperCourse) editTopperCourse.value = 'IIT-JEE';
+                if (editTopperActive) editTopperActive.checked = true;
+                if (editTopperOrder) editTopperOrder.value = 0;
+                if (editTopperPhoto) editTopperPhoto.required = true;
+                if (topperModalOverlay) topperModalOverlay.classList.add('visible');
+            } else {
+                // Legacy text topper modal for other cards
+                currentTopperEditId = null;
+                if (topperModalTitle) topperModalTitle.textContent = `Add ${currentCourseForTopper} Topper`;
+                if (topperEditForm) topperEditForm.reset();
+                if (editTopperCourse) editTopperCourse.value = currentCourseForTopper;
+                if (topperModalOverlay) topperModalOverlay.classList.add('visible');
+            }
+            return;
         }
 
+        // Edit Historical Achiever
+        if (editHistoricalBtn) {
+            e.preventDefault();
+            currentHistoricalTopperEditId = editHistoricalBtn.dataset.id;
+            const topper = allHistoricalToppers.find(t => t.id === currentHistoricalTopperEditId);
+            if (topper) {
+                currentCourseForTopper = topper.course_name;
+                if (topperModalTitle) topperModalTitle.textContent = `Edit ${topper.course_name} Achiever`;
+                if (editTopperId) editTopperId.value = topper.id;
+                if (editTopperName) editTopperName.value = topper.student_name;
+                if (editTopperCourse) editTopperCourse.value = topper.course_name;
+                if (editTopperSubject) editTopperSubject.value = topper.subject || '';
+                if (editTopperYear) editTopperYear.value = topper.academic_year;
+                if (editTopperAchievement) editTopperAchievement.value = topper.achievement;
+                if (editTopperOrder) editTopperOrder.value = topper.display_order || 0;
+                if (editTopperActive) editTopperActive.checked = topper.is_active !== false;
+                if (editTopperPhoto) {
+                    editTopperPhoto.value = '';
+                    editTopperPhoto.required = false; // Photo optional on edit
+                }
+                if (topperModalOverlay) topperModalOverlay.classList.add('visible');
+            }
+            return;
+        }
+
+        // Delete Historical Achiever
+        if (deleteHistoricalBtn) {
+            e.preventDefault();
+            const id = deleteHistoricalBtn.dataset.id;
+            if (confirm('Delete this historical achiever record? This cannot be undone.')) {
+                deleteHistoricalTopper(id, deleteHistoricalBtn);
+            }
+            return;
+        }
+
+        // Legacy Edit Topper
         if (editTopperBtn) {
             e.preventDefault();
             currentTopperEditId = editTopperBtn.dataset.id;
@@ -1157,18 +1324,25 @@ if (themeToggleBtn) {
                 if (editTopperDesc) editTopperDesc.value = topper.description || '';
                 if (topperModalOverlay) topperModalOverlay.classList.add('visible');
             }
+            return;
         }
 
+        // Legacy Delete Topper
         if (deleteTopperBtn) {
             e.preventDefault();
             const id = deleteTopperBtn.dataset.id;
             if (confirm('Delete this topper? This cannot be undone.')) {
                 deleteTopper(id, deleteTopperBtn);
             }
+            return;
         }
     });
 
-    const closeTopperMod = () => { if(topperModalOverlay) topperModalOverlay.classList.remove('visible'); };
+    const closeTopperMod = () => {
+        if (topperModalOverlay) topperModalOverlay.classList.remove('visible');
+        currentHistoricalTopperEditId = null;
+        currentTopperEditId = null;
+    };
     if (closeTopperModalBtn) closeTopperModalBtn.addEventListener('click', closeTopperMod);
     if (topperModalOverlay) topperModalOverlay.addEventListener('click', (e) => {
         if (e.target === topperModalOverlay) closeTopperMod();
@@ -1177,11 +1351,11 @@ if (themeToggleBtn) {
     if (topperEditForm) {
         topperEditForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!isAdmin()) return;
+
             const submitBtn = topperEditForm.querySelector('button[type="submit"]');
             const origText = submitBtn.textContent;
             submitBtn.disabled = true;
-            submitBtn.innerHTML = 'Saving... <span class="spinner"></span>';
-            console.log('[Toppers] topper save started');
 
             try {
                 // Enforce and log authenticated session check
@@ -1194,10 +1368,160 @@ if (themeToggleBtn) {
                 });
                 if (!session) throw new Error("No active authenticated session found. Please log in.");
 
+                const courseVal = (editTopperCourse ? editTopperCourse.value.trim() : '') || currentCourseForTopper || 'IIT-JEE';
+
+                // ==========================================================
+                // ROUTE 1: HISTORICAL TOPPER SYSTEM (FOR IIT-JEE)
+                // ==========================================================
+                if (courseVal === 'IIT-JEE' || courseVal === 'IIT JEE' || editTopperAchievement) {
+                    console.log('[Historical Toppers] Saving to historical_course_toppers...');
+                    submitBtn.innerHTML = 'Processing... <span class="spinner"></span>';
+
+                    let photoFile = editTopperPhoto?.files?.[0];
+
+                    // Compress photo using browser-image-compression if larger than 1MB
+                    if (photoFile && typeof imageCompression === 'function') {
+                        if (photoFile.size > 1024 * 1024) {
+                            submitBtn.innerHTML = 'Compressing photo... <span class="spinner"></span>';
+                            console.log(`[Historical Toppers] Original photo size: ${(photoFile.size / 1024 / 1024).toFixed(2)} MB`);
+                            const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
+                            photoFile = await imageCompression(photoFile, options);
+                            console.log(`[Historical Toppers] Compressed photo size: ${(photoFile.size / 1024 / 1024).toFixed(2)} MB`);
+                        } else {
+                            console.log(`[Historical Toppers] Photo size (${(photoFile.size / 1024).toFixed(1)} KB) is already under 1MB.`);
+                        }
+                    }
+
+                    const topperId = currentHistoricalTopperEditId || (editTopperId ? editTopperId.value : null);
+                    const studentName = editTopperName ? editTopperName.value.trim() : '';
+                    const subject = editTopperSubject ? editTopperSubject.value.trim() : '';
+                    const academicYear = editTopperYear ? editTopperYear.value.trim() : '';
+                    const achievement = editTopperAchievement ? editTopperAchievement.value.trim() : (editTopperScore ? editTopperScore.value.trim() : '');
+                    const displayOrder = parseInt(editTopperOrder?.value, 10) || 0;
+                    const isActive = editTopperActive ? editTopperActive.checked : true;
+
+                    if (!studentName || !academicYear || !achievement) {
+                        throw new Error("Student Name, Academic Year, and Achievement are required fields.");
+                    }
+
+                    if (topperId) {
+                        // --- UPDATE EXISTING HISTORICAL TOPPER ---
+                        submitBtn.innerHTML = 'Updating details... <span class="spinner"></span>';
+                        let updateData = {
+                            student_name: studentName,
+                            course_name: 'IIT-JEE',
+                            subject: subject,
+                            academic_year: academicYear,
+                            achievement: achievement,
+                            display_order: displayOrder,
+                            is_active: isActive
+                        };
+
+                        let oldPhotoPath = null;
+                        const existingRecord = allHistoricalToppers.find(t => t.id === topperId);
+                        if (existingRecord) {
+                            oldPhotoPath = existingRecord.photo_path;
+                        }
+
+                        // Handle photo replacement
+                        if (photoFile) {
+                            submitBtn.innerHTML = 'Uploading photo... <span class="spinner"></span>';
+                            const folder = 'iit-jee';
+                            const sanitizedFileName = `${Date.now()}_${photoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+                            const newFilePath = `${folder}/${sanitizedFileName}`;
+
+                            const { error: uploadError } = await supabaseClient.storage
+                                .from(HISTORICAL_TOPPERS_BUCKET)
+                                .upload(newFilePath, photoFile);
+                            if (uploadError) throw uploadError;
+
+                            const { data: urlData } = supabaseClient.storage
+                                .from(HISTORICAL_TOPPERS_BUCKET)
+                                .getPublicUrl(newFilePath);
+
+                            updateData.photo_url = urlData.publicUrl;
+                            updateData.photo_path = newFilePath;
+
+                            // Update DB first
+                            const { error: updateError } = await supabaseClient
+                                .from(HISTORICAL_TOPPERS_TABLE)
+                                .update(updateData)
+                                .eq('id', topperId);
+                            if (updateError) throw updateError;
+
+                            // Safely remove old photo ONLY after replacement and update succeed
+                            if (oldPhotoPath) {
+                                console.log('[Historical Toppers] Removing old photo:', oldPhotoPath);
+                                await supabaseClient.storage
+                                    .from(HISTORICAL_TOPPERS_BUCKET)
+                                    .remove([oldPhotoPath]);
+                            }
+                        } else {
+                            // Update text fields only
+                            const { error: updateError } = await supabaseClient
+                                .from(HISTORICAL_TOPPERS_TABLE)
+                                .update(updateData)
+                                .eq('id', topperId);
+                            if (updateError) throw updateError;
+                        }
+
+                        console.log(`[Historical Toppers] ✅ Successfully updated record ID: ${topperId}`);
+                    } else {
+                        // --- INSERT NEW HISTORICAL TOPPER ---
+                        let photoUrl = null;
+                        let photoPath = null;
+
+                        if (photoFile) {
+                            submitBtn.innerHTML = 'Uploading photo... <span class="spinner"></span>';
+                            const folder = 'iit-jee';
+                            const sanitizedFileName = `${Date.now()}_${photoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+                            const filePath = `${folder}/${sanitizedFileName}`;
+
+                            const { error: uploadError } = await supabaseClient.storage
+                                .from(HISTORICAL_TOPPERS_BUCKET)
+                                .upload(filePath, photoFile);
+                            if (uploadError) throw uploadError;
+
+                            const { data: urlData } = supabaseClient.storage
+                                .from(HISTORICAL_TOPPERS_BUCKET)
+                                .getPublicUrl(filePath);
+
+                            photoUrl = urlData.publicUrl;
+                            photoPath = filePath;
+                        }
+
+                        submitBtn.innerHTML = 'Saving achiever... <span class="spinner"></span>';
+                        const { error: insertError } = await supabaseClient
+                            .from(HISTORICAL_TOPPERS_TABLE)
+                            .insert([{
+                                student_name: studentName,
+                                course_name: 'IIT-JEE',
+                                subject: subject,
+                                academic_year: academicYear,
+                                achievement: achievement,
+                                photo_url: photoUrl,
+                                photo_path: photoPath,
+                                display_order: displayOrder,
+                                is_active: isActive
+                            }]);
+                        if (insertError) throw insertError;
+
+                        console.log('[Historical Toppers] ✅ Successfully added new achiever');
+                    }
+
+                    closeTopperMod();
+                    await loadHistoricalToppers('IIT-JEE');
+                    return;
+                }
+
+                // ==========================================================
+                // ROUTE 2: LEGACY TOPPERS (PRESERVED FOR OTHER COURSES)
+                // ==========================================================
+                submitBtn.innerHTML = 'Saving... <span class="spinner"></span>';
                 const payload = {
-                    student_name: editTopperName.value.trim(),
-                    score: parseFloat(editTopperScore.value),
-                    description: editTopperDesc.value.trim(),
+                    student_name: editTopperName ? editTopperName.value.trim() : '',
+                    score: parseFloat(editTopperScore ? editTopperScore.value : 0),
+                    description: editTopperDesc ? editTopperDesc.value.trim() : '',
                     course_name: currentCourseForTopper
                 };
 
@@ -1208,12 +1532,11 @@ if (themeToggleBtn) {
                     const { error } = await supabaseClient.from('course_toppers').insert([payload]);
                     if (error) throw error;
                 }
-                console.log('[Toppers] database save success');
 
                 closeTopperMod();
                 await loadAllToppers();
             } catch (err) {
-                console.error('[Toppers] exact errors:', err);
+                console.error('[Toppers] Error saving:', err);
                 alert('Failed to save topper: ' + (err.message || 'Check console.'));
             } finally {
                 submitBtn.disabled = false;
@@ -1222,19 +1545,54 @@ if (themeToggleBtn) {
         });
     }
 
+    async function deleteHistoricalTopper(id, btn) {
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="margin:0; width:12px; height:12px; border-width:2px;"></span>';
+
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) throw new Error("No active authenticated session found. Please log in.");
+
+            console.log('[Historical Toppers] Deleting achiever ID:', id);
+
+            // Fetch photo path to delete from storage
+            const { data: record, error: fetchError } = await supabaseClient
+                .from(HISTORICAL_TOPPERS_TABLE)
+                .select('photo_path')
+                .eq('id', id)
+                .single();
+
+            if (!fetchError && record?.photo_path) {
+                console.log('[Historical Toppers] Removing photo from storage:', record.photo_path);
+                await supabaseClient.storage
+                    .from(HISTORICAL_TOPPERS_BUCKET)
+                    .remove([record.photo_path]);
+            }
+
+            // Delete database row
+            const { error: deleteError } = await supabaseClient
+                .from(HISTORICAL_TOPPERS_TABLE)
+                .delete()
+                .eq('id', id);
+            if (deleteError) throw deleteError;
+
+            console.log('[Historical Toppers] ✅ Successfully deleted achiever ID:', id);
+            await loadHistoricalToppers('IIT-JEE');
+        } catch (err) {
+            console.error('[Historical Toppers] Error deleting:', err);
+            alert('Failed to delete achiever: ' + (err.message || 'Check console.'));
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
+
     async function deleteTopper(id, btn) {
         const origHtml = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner" style="margin:0; width:12px; height:12px; border-width:2px;"></span>';
         try {
-            // Enforce and log authenticated session check
             const { data: { session } } = await supabaseClient.auth.getSession();
-            console.log('[Toppers] Auth Debug before delete:', {
-                sessionExists: !!session,
-                userEmail: session?.user?.email,
-                role: session?.user?.role,
-                hasAccessToken: !!session?.access_token
-            });
             if (!session) throw new Error("No active authenticated session found. Please log in.");
 
             const { error } = await supabaseClient.from('course_toppers').delete().eq('id', id);
@@ -1268,6 +1626,9 @@ if (themeToggleBtn) {
         loadGalleryAndAdminControls(); // Reload gallery with admin controls
         loadAdaptiveFacultyData(); // Dynamically update admin controls for faculty
         loadAllToppers(); // Refresh toppers to attach admin controls
+        if (typeof loadHistoricalToppers === 'function') {
+            loadHistoricalToppers('IIT-JEE');
+        }
     }
 
     function disableAdminMode() {
@@ -1276,6 +1637,9 @@ if (themeToggleBtn) {
         loadGalleryAndAdminControls(); // Reload gallery without admin controls
         loadAdaptiveFacultyData(); // Dynamically remove admin controls for faculty
         loadAllToppers(); // Refresh toppers to ensure public view is clean
+        if (typeof loadHistoricalToppers === 'function') {
+            loadHistoricalToppers('IIT-JEE');
+        }
     }
 
     if (portalBtn && modalOverlay) {
@@ -1318,7 +1682,7 @@ if (themeToggleBtn) {
  const facultyModalOverlay = document.getElementById('faculty-modal-overlay');
  const closeFacultyModalBtn = document.getElementById('close-faculty-modal');
  const facultyEditForm = document.getElementById('faculty-edit-form');
- const facultyModalTitle = facultyModalOverlay.querySelector('.modal-title');
+ const facultyModalTitle = facultyModalOverlay ? facultyModalOverlay.querySelector('.modal-title') : null;
  const editFacultyName = document.getElementById('edit-faculty-name');
  const editFacultySubject = document.getElementById('edit-faculty-subject');
  const editFacultyTitle = document.getElementById('edit-faculty-title');
@@ -1505,13 +1869,14 @@ if (themeToggleBtn) {
  });
 
  // Form Submission (Handles both Create and Update)
- facultyEditForm.addEventListener('submit', async (e) => {
-     e.preventDefault();
-     if (!isAdmin()) return;
+ if (facultyEditForm) {
+     facultyEditForm.addEventListener('submit', async (e) => {
+         e.preventDefault();
+         if (!isAdmin()) return;
 
-     const submitBtn = facultyEditForm.querySelector('button[type="submit"]');
-     const originalText = submitBtn.textContent;
-     submitBtn.disabled = true;
+         const submitBtn = facultyEditForm.querySelector('button[type="submit"]');
+         const originalText = submitBtn.textContent;
+         submitBtn.disabled = true;
 
      try {
          let photoFile = editFacultyPhoto.files[0];
@@ -1551,6 +1916,7 @@ if (themeToggleBtn) {
          submitBtn.textContent = originalText;
      }
  });
+ }
 
  async function handleCreate(formData) {
      try {
